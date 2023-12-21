@@ -1,58 +1,75 @@
 import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
 
-const socket = io('http://localhost:3003');
+const socket = io('http://localhost:3009');
 
-function App() {
-  const [drawing, setDrawing] = useState([]);
+const CanvasDrawingApp = () => {
   const [isDrawing, setIsDrawing] = useState(false);
 
   useEffect(() => {
-    // Set up event listeners
+    const canvas = document.getElementById('drawingCanvas');
+    const ctx = canvas.getContext('2d');
+
     socket.on('draw', (drawingData) => {
-      setDrawing(drawingData);
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = '#000';
+  
+      ctx.lineTo(drawingData.x, drawingData.y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(drawingData.x, drawingData.y);
     });
 
-    // Clean up event listeners on unmount
-    return () => {
-      socket.off('draw');
+    const startDrawing = (e) => {
+      setIsDrawing(true);
+      draw(e);
     };
-  }, []);
 
-  const handleMouseDown = (e) => {
-    setIsDrawing(true);
-    handleMouseMove(e);
-  };
+    const stopDrawing = () => {
+      setIsDrawing(false);
+      ctx.beginPath();
+    };
 
-  const handleMouseUp = () => {
-    setIsDrawing(false);
-    socket.emit('draw', drawing);
-  };
+    const draw = (e) => {
+      if (!isDrawing) return;
 
-  const handleMouseMove = (e) => {
-    if (!isDrawing) return;
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = '#000';
 
-    const { clientX, clientY } = e;
-    const point = { x: clientX, y: clientY };
+      ctx.lineTo(e.clientX - canvas.offsetLeft, e.clientY - canvas.offsetTop);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(e.clientX - canvas.offsetLeft, e.clientY - canvas.offsetTop);
 
-    setDrawing((prevDrawing) => [...prevDrawing, point]);
-  };
+      socket.emit('draw', {
+        x: e.clientX - canvas.offsetLeft,
+        y: e.clientY - canvas.offsetTop,
+      });
+    };
+
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mousemove', draw);
+
+    return () => {
+      canvas.removeEventListener('mousedown', startDrawing);
+      canvas.removeEventListener('mouseup', stopDrawing);
+      canvas.removeEventListener('mousemove', draw);
+    };
+  }, [isDrawing]);
 
   return (
     <div>
-      <div>
-      <div>Mouse is moving {drawing.length}</div>
-        <canvas
-          onMouseDown={handleMouseDown}
-          onMouseUp={handleMouseUp}
-          onMouseMove={handleMouseMove}
-          width={800}
-          height={600}
-          style={{ border: '1px solid #000' }}
-        />
-      </div>
+      <canvas
+        id="drawingCanvas"
+        width={800}
+        height={600}
+        style={{ border: '1px solid #000' }}
+      />
     </div>
   );
-}
+};
 
-export default App;
+export default CanvasDrawingApp;
